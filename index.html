@@ -3,23 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Water Drop Game</title>
+    <title>Water Drop | Inspired by charity: water</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 4C32 4 12 28 12 41a20 20 0 0 0 40 0C52 28 32 4 32 4z' fill='%232E9DF7'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="game-wrapper">
         <h1 class="game-title">Water Drop</h1>
-        <p class="game-tagline">Catch the good drops, avoid the bad ones!</p>
+        <p class="game-tagline">Catch the clean drops, dodge the polluted ones, and grab the golden jerry can!</p>
+
         <div class="score-panel">
-            <div class="score">Score: <span id="score">0</span></div>
-            <div class="timer">Time: <span id="time">30</span>s</div>
-            <button id="start-btn">Start Game</button>
+            <div class="stat">Score: <span id="score">0</span><span class="goal">/ <span id="goal">20</span></span></div>
+            <div class="stat">Time: <span id="time">30</span>s</div>
+            <div class="buttons">
+                <button id="start-btn">Start Game</button>
+                <button id="reset-btn" class="secondary" type="button">Reset</button>
+            </div>
         </div>
-        
+
+        <div class="progress" aria-hidden="true"><div id="progress-bar"></div></div>
+        <p id="message" class="message" role="status" aria-live="polite">Tap Start Game, then click the drops before they hit the ground.</p>
+
         <div id="game-container">
+            <div id="end-screen" class="end-screen" hidden>
+                <h2 id="end-title"></h2>
+                <p id="end-text"></p>
+                <p class="final-line">Final score: <strong id="final-score">0</strong> &middot; Best: <strong id="best-score">0</strong></p>
+                <button id="play-again" type="button">Play Again</button>
+            </div>
         </div>
+
+        <ul class="legend" aria-label="How scoring works">
+            <li><span class="swatch clean"></span> Clean drop <b>+1</b></li>
+            <li><span class="swatch dirty"></span> Polluted drop <b>&minus;2</b></li>
+            <li><span class="swatch can"></span> Golden jerry can <b>+5</b></li>
+        </ul>
+        <p class="footer">A student prototype inspired by charity: water&rsquo;s mission of clean water for everyone.</p>
     </div>
-    
+
     <script src="script.js"></script>
 </body>
 </html>
