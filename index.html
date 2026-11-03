@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Water Drop | Inspired by charity: water</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 4C32 4 12 28 12 41a20 20 0 0 0 40 0C52 28 32 4 32 4z' fill='%232E9DF7'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,12 +15,21 @@
         <h1 class="game-title">Water Drop</h1>
         <p class="game-tagline">Catch the clean drops, dodge the polluted ones, and grab the golden jerry can!</p>
 
+        <fieldset class="difficulty">
+            <legend>Choose a difficulty</legend>
+            <label class="mode"><input type="radio" name="difficulty" value="easy"><span>Easy</span></label>
+            <label class="mode"><input type="radio" name="difficulty" value="normal" checked><span>Normal</span></label>
+            <label class="mode"><input type="radio" name="difficulty" value="hard"><span>Hard</span></label>
+        </fieldset>
+        <p id="mode-info" class="mode-info"></p>
+
         <div class="score-panel">
             <div class="stat">Score: <span id="score">0</span><span class="goal">/ <span id="goal">20</span></span></div>
             <div class="stat">Time: <span id="time">30</span>s</div>
             <div class="buttons">
                 <button id="start-btn">Start Game</button>
                 <button id="reset-btn" class="secondary" type="button">Reset</button>
+                <button id="mute-btn" class="secondary icon-btn" type="button" aria-pressed="false" aria-label="Sound on" title="Sound on">&#128266;</button>
             </div>
         </div>
 
@@ -35,10 +47,18 @@
 
         <ul class="legend" aria-label="How scoring works">
             <li><span class="swatch clean"></span> Clean drop <b>+1</b></li>
-            <li><span class="swatch dirty"></span> Polluted drop <b>&minus;2</b></li>
+            <li><span class="swatch dirty"></span> Polluted drop <b>&minus;<span id="penalty-label">2</span></b></li>
             <li><span class="swatch can"></span> Golden jerry can <b>+5</b></li>
         </ul>
-        <p class="footer">A student prototype inspired by charity: water&rsquo;s mission of clean water for everyone.</p>
+        <footer class="site-footer">
+            <p class="cta">About 1 in 4 people worldwide still lack safely managed drinking water. Help change that.</p>
+            <nav class="footer-links" aria-label="charity: water links">
+                <a class="donate-link" href="https://www.charitywater.org/donate" target="_blank" rel="noopener">Donate to charity: water<span class="visually-hidden"> (opens in a new tab)</span></a>
+                <a href="https://www.charitywater.org/" target="_blank" rel="noopener">Visit charitywater.org<span class="visually-hidden"> (opens in a new tab)</span></a>
+                <a href="https://www.charitywater.org/about" target="_blank" rel="noopener">About their mission<span class="visually-hidden"> (opens in a new tab)</span></a>
+            </nav>
+            <p class="footer">A student game inspired by charity: water&rsquo;s mission of clean water for everyone. Not an official charity: water product.</p>
+        </footer>
     </div>
 
     <script src="script.js"></script>

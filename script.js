@@ -1,17 +1,32 @@
 // ===== Water Drop: a charity: water inspired game =====
 
-// ----- Game settings -----
-const GAME_SECONDS = 30; // how long one round lasts
-const GOAL = 20; // score needed to win
-const POINTS = { clean: 1, dirty: -2, can: 5 }; // what each item is worth
-const BEST_KEY = "waterDropBestScore";
+// ----- Difficulty modes -----
+// Each mode changes the goal, the time, the speed and how risky the drops are.
+const DIFFICULTY = {
+  easy: {
+    label: "Easy", seconds: 40, goal: 15, dirtyChance: 0.15, penalty: 1,
+    startDelay: 950, minDelay: 550, startFall: 5.0, minFall: 3.4,
+  },
+  normal: {
+    label: "Normal", seconds: 30, goal: 20, dirtyChance: 0.25, penalty: 2,
+    startDelay: 850, minDelay: 420, startFall: 4.4, minFall: 2.4,
+  },
+  hard: {
+    label: "Hard", seconds: 25, goal: 30, dirtyChance: 0.35, penalty: 3,
+    startDelay: 650, minDelay: 330, startFall: 3.4, minFall: 1.9,
+  },
+};
 
-// Facts shown when the player passes a milestone score
+const CAN_CHANCE = 0.05; // chance of a golden jerry can
+const CAN_POINTS = 5;
+const CLEAN_POINTS = 1;
+
+// ----- LevelUp: milestone messages (shown at a fraction of the goal) -----
 const MILESTONES = [
-  { score: 5, fact: "Nice start! charity: water was founded in 2006 to bring clean water to people who need it." },
-  { score: 10, fact: "Halfway there! About 2 billion people around the world still lack safely managed drinking water." },
-  { score: 15, fact: "Almost there! Many families, often women and girls, spend hours every day walking to collect water." },
-  { score: 20, fact: "Goal reached! Clean water changes everything: health, school, and income for a whole community." },
+  { at: 0.25, text: "Great start! charity: water was founded in 2006 to bring clean water to people who need it." },
+  { at: 0.5, text: "Halfway there! About 2 billion people around the world still lack safely managed drinking water." },
+  { at: 0.75, text: "Almost there! Many families, often women and girls, spend hours every day walking to collect water." },
+  { at: 1, text: "Goal reached! Clean water changes everything: health, school, and income for a whole community." },
 ];
 
 // Messages for the end of the game. One is picked at random.
@@ -23,7 +38,7 @@ const winMessages = [
 ];
 const loseMessages = [
   "So close! Give it another try and catch more clean drops.",
-  "Not quite 20 this time. Dodge the polluted drops and go again!",
+  "Not quite there this time. Dodge the polluted drops and go again!",
   "Keep going! Every drop you catch makes a difference.",
   "Almost! Aim for the golden jerry cans, they are worth 5.",
 ];
@@ -35,6 +50,7 @@ const timeEl = document.getElementById("time");
 const goalEl = document.getElementById("goal");
 const startBtn = document.getElementById("start-btn");
 const resetBtn = document.getElementById("reset-btn");
+const muteBtn = document.getElementById("mute-btn");
 const messageEl = document.getElementById("message");
 const progressBar = document.getElementById("progress-bar");
 const endScreen = document.getElementById("end-screen");
@@ -43,28 +59,89 @@ const endText = document.getElementById("end-text");
 const finalScoreEl = document.getElementById("final-score");
 const bestScoreEl = document.getElementById("best-score");
 const playAgainBtn = document.getElementById("play-again");
+const modeInfoEl = document.getElementById("mode-info");
+const penaltyLabel = document.getElementById("penalty-label");
+const modeInputs = document.querySelectorAll('input[name="difficulty"]');
 
 // ----- Game state -----
+let mode = "normal";
+let cfg = DIFFICULTY[mode];
 let gameRunning = false;
 let score = 0;
-let timeLeft = GAME_SECONDS;
+let timeLeft = cfg.seconds;
 let dropTimer; // setTimeout id for the next drop
 let countdownTimer; // setInterval id for the clock
 let milestonesHit = [];
 
-goalEl.textContent = GOAL;
+// ----- LevelUp: sound effects (made with the Web Audio API, no audio files needed) -----
+let audioCtx = null;
+let muted = false;
 
-// ----- Best score (saved in the browser) -----
+function getAudio() {
+  if (muted) return null;
+  try {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  } catch (err) {
+    return null;
+  }
+}
+
+// Plays one short tone
+function tone(freq, duration, type, volume, delay) {
+  const ctx = getAudio();
+  if (!ctx) return;
+  const start = ctx.currentTime + (delay || 0);
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type || "sine";
+  osc.frequency.setValueAtTime(freq, start);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(volume || 0.15, start + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + duration + 0.02);
+}
+
+const sounds = {
+  collect() { tone(660, 0.12, "sine", 0.15); tone(880, 0.14, "sine", 0.12, 0.07); },
+  dirty() { tone(160, 0.25, "sawtooth", 0.12); tone(110, 0.3, "sawtooth", 0.1, 0.08); },
+  can() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.16, "triangle", 0.14, i * 0.07)); },
+  click() { tone(500, 0.07, "square", 0.06); },
+  win() { [523, 659, 784, 659, 784, 1047].forEach((f, i) => tone(f, 0.22, "triangle", 0.15, i * 0.12)); },
+  lose() { [392, 330, 262].forEach((f, i) => tone(f, 0.28, "sine", 0.14, i * 0.16)); },
+  miss() { tone(220, 0.08, "sine", 0.04); },
+};
+
+muteBtn.addEventListener("click", () => {
+  muted = !muted;
+  muteBtn.innerHTML = muted ? "&#128263;" : "&#128266;";
+  muteBtn.setAttribute("aria-pressed", String(muted));
+  muteBtn.setAttribute("aria-label", muted ? "Sound off" : "Sound on");
+  muteBtn.title = muted ? "Sound off" : "Sound on";
+  sounds.click();
+});
+
+// ----- Best score (saved in the browser, one per difficulty) -----
+function bestKey() {
+  return "waterDropBest_" + mode;
+}
 function getBest() {
   try {
-    return Number(localStorage.getItem(BEST_KEY)) || 0;
+    return Number(localStorage.getItem(bestKey())) || 0;
   } catch (err) {
     return 0;
   }
 }
 function saveBest(value) {
   try {
-    localStorage.setItem(BEST_KEY, String(value));
+    localStorage.setItem(bestKey(), String(value));
   } catch (err) {
     /* storage not available, ignore */
   }
@@ -78,8 +155,8 @@ function showMessage(text, type) {
 
 function updateScoreDisplay(flashClass) {
   scoreEl.textContent = score;
-  progressBar.style.width = Math.min((score / GOAL) * 100, 100) + "%";
-  progressBar.classList.toggle("done", score >= GOAL);
+  progressBar.style.width = Math.min((score / cfg.goal) * 100, 100) + "%";
+  progressBar.classList.toggle("done", score >= cfg.goal);
   if (flashClass) {
     scoreEl.classList.remove("flash-good", "flash-bad");
     void scoreEl.offsetWidth; // restart the animation
@@ -97,18 +174,44 @@ function showPop(text, type, x, y) {
   pop.addEventListener("animationend", () => pop.remove());
 }
 
+// Updates every label that depends on the chosen difficulty
+function applyMode() {
+  cfg = DIFFICULTY[mode];
+  goalEl.textContent = cfg.goal;
+  timeEl.textContent = cfg.seconds;
+  penaltyLabel.textContent = cfg.penalty;
+  modeInfoEl.textContent =
+    cfg.label + ": reach " + cfg.goal + " points in " + cfg.seconds + " seconds. Polluted drops cost " + cfg.penalty + ".";
+  bestScoreEl.textContent = getBest();
+}
+
+modeInputs.forEach((input) => {
+  input.addEventListener("change", () => {
+    if (gameRunning) return;
+    mode = input.value;
+    sounds.click();
+    resetGame();
+  });
+});
+
+function lockModes(locked) {
+  modeInputs.forEach((input) => (input.disabled = locked));
+}
+
 // ----- Starting, resetting and ending -----
 function startGame() {
   if (gameRunning) return; // stop two games from running at once
   clearBoard();
   gameRunning = true;
   score = 0;
-  timeLeft = GAME_SECONDS;
+  timeLeft = cfg.seconds;
   milestonesHit = [];
   endScreen.hidden = true;
   startBtn.disabled = true;
+  lockModes(true);
   timeEl.textContent = timeLeft;
   updateScoreDisplay();
+  sounds.click();
   showMessage("Go! Catch the clean drops and dodge the brown ones.");
 
   countdownTimer = setInterval(tick, 1000);
@@ -132,22 +235,24 @@ function resetGame() {
   gameRunning = false;
   clearBoard();
   score = 0;
-  timeLeft = GAME_SECONDS;
   milestonesHit = [];
   endScreen.hidden = true;
   startBtn.disabled = false;
-  timeEl.textContent = timeLeft;
+  lockModes(false);
+  applyMode();
+  timeLeft = cfg.seconds;
   updateScoreDisplay();
-  showMessage("Game reset. Tap Start Game when you are ready.");
+  showMessage("Ready? Pick a difficulty and tap Start Game.");
 }
 
 function endGame() {
   gameRunning = false;
   clearBoard();
   startBtn.disabled = false;
+  lockModes(false);
   timeEl.textContent = 0;
 
-  const won = score >= GOAL;
+  const won = score >= cfg.goal;
   const pool = won ? winMessages : loseMessages;
   const randomMessage = pool[Math.floor(Math.random() * pool.length)];
 
@@ -165,8 +270,13 @@ function endGame() {
   endScreen.hidden = false;
   playAgainBtn.focus();
 
-  showMessage(won ? "You reached the goal!" : "Time is up. Try again!", won ? "good" : "bad");
-  if (won) launchConfetti();
+  showMessage(won ? "You reached the goal on " + cfg.label + " mode!" : "Time is up. Try again!", won ? "good" : "bad");
+  if (won) {
+    sounds.win();
+    launchConfetti();
+  } else {
+    sounds.lose();
+  }
 }
 
 // ----- Making drops -----
@@ -174,16 +284,16 @@ function scheduleDrop() {
   if (!gameRunning) return;
   createDrop();
   // Drops come faster as the round goes on
-  const elapsed = GAME_SECONDS - timeLeft;
-  const delay = Math.max(420, 850 - elapsed * 14);
+  const progress = (cfg.seconds - timeLeft) / cfg.seconds;
+  const delay = Math.max(cfg.minDelay, cfg.startDelay - progress * (cfg.startDelay - cfg.minDelay));
   dropTimer = setTimeout(scheduleDrop, delay);
 }
 
-// Picks what kind of item to drop: 70% clean, 25% polluted, 5% golden jerry can
+// Picks what kind of item to drop (the chances depend on the difficulty)
 function pickType() {
   const roll = Math.random();
-  if (roll < 0.05) return "can";
-  if (roll < 0.3) return "dirty";
+  if (roll < CAN_CHANCE) return "can";
+  if (roll < CAN_CHANCE + cfg.dirtyChance) return "dirty";
   return "clean";
 }
 
@@ -203,8 +313,8 @@ function createDrop() {
   drop.style.left = Math.random() * maxLeft + "px";
 
   // Fall all the way to the bottom. Faster later in the round.
-  const elapsed = GAME_SECONDS - timeLeft;
-  const duration = Math.max(2.4, 4.4 - elapsed * 0.05) * (type === "can" ? 0.8 : 1);
+  const progress = (cfg.seconds - timeLeft) / cfg.seconds;
+  const duration = (cfg.startFall - progress * (cfg.startFall - cfg.minFall)) * (type === "can" ? 0.8 : 1);
   drop.style.setProperty("--fall", container.clientHeight + 30 + "px");
   drop.style.animationDuration = duration + "s";
 
@@ -214,13 +324,16 @@ function createDrop() {
     catchDrop(drop, type, event);
   });
 
-  // Drops that reach the bottom just disappear
-  drop.addEventListener("animationend", () => drop.remove());
+  // Drops that reach the bottom are removed from the page
+  drop.addEventListener("animationend", () => {
+    if (gameRunning && type === "clean") sounds.miss();
+    drop.remove();
+  });
 
   container.appendChild(drop);
 }
 
-// ----- Catching drops -----
+// ----- Catching drops (the clicked element is removed from the DOM) -----
 function catchDrop(drop, type, event) {
   if (!gameRunning || drop.dataset.caught) return;
   drop.dataset.caught = "true";
@@ -229,37 +342,42 @@ function catchDrop(drop, type, event) {
   const x = event.clientX - rect.left - 10;
   const y = event.clientY - rect.top - 20;
 
-  const points = POINTS[type];
-  score = Math.max(0, score + points); // the score never goes below zero
-  drop.remove();
+  drop.remove(); // gone from the page as soon as it is caught
 
   if (type === "dirty") {
-    showPop("−2", "minus", x, y);
+    score = Math.max(0, score - cfg.penalty); // the score never goes below zero
+    showPop("−" + cfg.penalty, "minus", x, y);
     updateScoreDisplay("flash-bad");
-    showMessage("Oops, polluted water! That costs you 2 points.", "bad");
+    showMessage("Oops, polluted water! That costs you " + cfg.penalty + (cfg.penalty === 1 ? " point." : " points."), "bad");
     container.classList.remove("shake");
     void container.offsetWidth;
     container.classList.add("shake");
+    sounds.dirty();
   } else if (type === "can") {
-    showPop("+5", "plus gold", x, y);
+    score += CAN_POINTS;
+    showPop("+" + CAN_POINTS, "plus gold", x, y);
     updateScoreDisplay("flash-good");
-    showMessage("Golden jerry can! +5 points!", "good");
+    showMessage("Golden jerry can! +" + CAN_POINTS + " points!", "good");
+    sounds.can();
   } else {
-    showPop("+1", "plus", x, y);
+    score += CLEAN_POINTS;
+    showPop("+" + CLEAN_POINTS, "plus", x, y);
     updateScoreDisplay("flash-good");
+    sounds.collect();
   }
 
   checkMilestones();
 }
 
-// Shows a charity: water fact the first time each milestone is passed
+// Shows a message the first time each milestone is passed
 function checkMilestones() {
-  for (const m of MILESTONES) {
-    if (score >= m.score && !milestonesHit.includes(m.score)) {
-      milestonesHit.push(m.score);
-      showMessage(m.fact, "fact");
+  MILESTONES.forEach((m, index) => {
+    const needed = Math.ceil(cfg.goal * m.at);
+    if (score >= needed && !milestonesHit.includes(index)) {
+      milestonesHit.push(index);
+      showMessage(m.text, "fact");
     }
-  }
+  });
 }
 
 // ----- Celebration -----
@@ -280,8 +398,11 @@ function launchConfetti() {
 
 // ----- Buttons -----
 startBtn.addEventListener("click", startGame);
-resetBtn.addEventListener("click", resetGame);
+resetBtn.addEventListener("click", () => {
+  sounds.click();
+  resetGame();
+});
 playAgainBtn.addEventListener("click", startGame);
 
-// Show the saved best score on the first screen
-bestScoreEl.textContent = getBest();
+// Set up the first screen
+resetGame();

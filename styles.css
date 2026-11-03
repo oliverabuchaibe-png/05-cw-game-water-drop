@@ -1,4 +1,6 @@
-/* charity: water brand colors
+/* Font: charity: water's primary brand font is Proxima Nova (Avenir is the backup).
+   Montserrat is a free web font that closely resembles Proxima Nova, so it is loaded from Google Fonts.
+   charity: water brand colors
    Yellow #FFC907 | Blue #2E9DF7 | Dark blue #0B5CA8 | Teal #8BD1CB | Red #F5402C | Text #131313 */
 :root {
   --yellow: #FFC907;
@@ -14,7 +16,7 @@
 
 body {
   margin: 0;
-  font-family: "Proxima Nova", "Avenir", "Segoe UI", Arial, sans-serif;
+  font-family: "Proxima Nova", "Montserrat", "Avenir", "Segoe UI", Arial, sans-serif;
   background: #f4f9fd;
   color: var(--text);
 }
@@ -250,3 +252,80 @@ button.secondary:hover { background: var(--sky); }
   .confetti { display: none; }
   #game-container.shake { animation: none; }
 }
+
+
+/* ===== Project 6 additions ===== */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Difficulty picker */
+.difficulty {
+  border: none;
+  padding: 0;
+  margin: 0 0 0.4rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.difficulty legend {
+  float: left;
+  margin-right: 0.8rem;
+  font-weight: 700;
+  padding: 0;
+  line-height: 2.4rem;
+}
+.mode input { position: absolute; opacity: 0; }
+.mode span {
+  display: inline-block;
+  padding: 0.5rem 1.2rem;
+  border: 2px solid var(--blue);
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 700;
+  color: var(--deep-blue);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.mode input:checked + span { background: var(--blue); color: #fff; }
+.mode input:focus-visible + span { outline: 3px solid var(--deep-blue); outline-offset: 2px; }
+.mode input:disabled + span { opacity: 0.55; cursor: not-allowed; }
+.mode-info { margin: 0 0 0.9rem; color: #3b4a58; font-weight: 600; }
+
+.icon-btn { padding: 0.5rem 0.8rem; }
+
+/* Footer with charity: water links */
+.site-footer {
+  margin-top: 1.2rem;
+  background: #fff;
+  border-radius: 14px;
+  padding: 1.2rem 1rem;
+  box-shadow: 0 2px 8px rgba(11, 92, 168, 0.12);
+}
+.site-footer .cta { margin: 0 0 0.8rem; font-weight: 600; }
+.footer-links {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.2rem;
+}
+.footer-links a {
+  color: var(--deep-blue);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+.footer-links a:focus-visible { outline: 3px solid var(--deep-blue); outline-offset: 2px; }
+.footer-links a.donate-link {
+  background: var(--yellow);
+  color: var(--text);
+  text-decoration: none;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+}
+.footer-links a.donate-link:hover { background: #ffd83d; }
